@@ -9,25 +9,32 @@ import operator
 import numpy as np
 import streamlit as st
 
+form = st.form("Sim Options")
+
 with open('data/contest_info/payout_structure.csv') as f:
     st.download_button('Download Sample Contest CSV', f, 'payout_structure.csv')
 
 with open('data/contest_info/sample_bracket.csv') as f:
     st.download_button('Download Sample Bracket Selections CSV', f, 'sample_bracket.csv')
 
-entries = st.sidebar.number_input('Number of Pool Contestants',value=16)
-entry_fee = st.sidebar.number_input('Pool Entry Fee',value=20)
+entries = form.number_input('Number of Pool Contestants',value=16)
+entry_fee = form.number_input('Pool Entry Fee',value=20)
+# Now add a submit button to the form:
 
-uploaded_contest_file = st.file_uploader("Upload Contest CSV")
 
-option = st.selectbox(
+uploaded_contest_file = form.file_uploader("Upload Contest CSV")
+
+option = form.selectbox(
     'Import Custom Selections?',
      ["I have my own picks to upload","Too lazy to make my own picks"])
 
 if option == 'I have my own picks to upload':
-    uploaded_selection_file = st.file_uploader("Upload Selections CSV")
+    uploaded_selection_file = form.file_uploader("Upload Selections CSV")
 else:
     uploaded_selection_file = None
+    
+submitted = form.form_submit_button("Submit")   
+
 url = 'https://fantasy.espn.com/tournament-challenge-bracket/2023/en/whopickedwhom'
 # Create object page
 page = requests.get(url)
@@ -139,12 +146,12 @@ class Team:
 teams = []
 for k in team_dict.keys():
     t = Team(team_dict[k]['name'], team_dict[k]['id'], team_dict[k]['seed'], team_dict[k]['region'], team_dict[k]['first_four'])
-    t.own['R64'] = team_dict[k]['R64']['espn_own']
-    t.own['R32'] = team_dict[k]['R32']['espn_own']
-    t.own['S16'] = team_dict[k]['S16']['espn_own']
-    t.own['E8'] = team_dict[k]['E8']['espn_own']
-    t.own['F4'] = team_dict[k]['F4']['espn_own']
-    t.own['NCG'] = team_dict[k]['NCG']['espn_own']
+    t.own['R64'] = team_dict[k]['R64']['espn_own']/100
+    t.own['R32'] = team_dict[k]['R32']['espn_own']/100
+    t.own['S16'] = team_dict[k]['S16']['espn_own']/100
+    t.own['E8'] = team_dict[k]['E8']['espn_own']/100
+    t.own['F4'] = team_dict[k]['F4']['espn_own']/100
+    t.own['NCG'] = team_dict[k]['NCG']['espn_own']/100
     teams.append(t)
 
 matchup_probabilities = pd.read_csv('data/game_predictions.csv')
@@ -381,30 +388,37 @@ class Entrant:
         self.rewards = 0
         self.total_points = {'R64':0, 'R32':0,'S16':0,'E8':0,'F4':0, 'NCG':0}
         self.finish_positions = []
-                
-    def uploadPicks(self):
-        return True
-    
-if uploaded_selection_file is not None:
-    print('yeehaw')     
-           
-if uploaded_contest_file is not None:
+        self.user_submitted = False
+          
+if submitted:
     # Can be used wherever a "file-like" object is accepted:
     payout_structure = pd.read_csv(uploaded_contest_file)
-    #st.write(payout_structure)
-
     contest_prize_structure ={}
     for i,r in payout_structure.iterrows():
         contest_prize_structure[i]= r['Payout']
+    #st.write(payout_structure)
 
     tourney = Pool(2023, teams, entries, contest_prize_structure, points_structure, entry_fee)
 
     tourney.generateBracketSelections()
 
-    tourney.simTourney()
+    if uploaded_selection_file is not None:
+        picks = pd.read_csv(uploaded_selection_file)    
+        for c in picks.columns:
+            tms = list(picks[c].dropna())
+            ids = []
+            for tm in tms:
+                if tm not in spellings.keys():
+                    print("Can't find " + tm + " please check file and resubmit")
+                ids.append(spellings[tm]['TeamID'])
+            tourney.entrants[0].selections[c] = ids
+            tourney.entrants[0].user_submitted = True
+            tourney.entrants[0].selection_names[c] = tms
+    print('brackets created')
 
     sims = 10000
     tourney.monteCarlo(sims)
+    print('tourney simmed')
 
     r64_selections = []
     r32_selections = []
@@ -420,8 +434,10 @@ if uploaded_contest_file is not None:
     ncg_points = []
     rewards = []
     ids = []
+    submissions = []
 
     for e in tourney.entrants:
+        print(e.id, e.user_submitted)
         r64_selections.append(e.selection_names['R64'])
         r32_selections.append(e.selection_names['R32'])
         s16_selections.append(e.selection_names['S16'])
@@ -436,9 +452,67 @@ if uploaded_contest_file is not None:
         ncg_points.append(e.total_points['NCG']/sims)
         rewards.append(e.rewards/sims)
         ids.append(e.id)
+        submissions.append(e.user_submitted)
 
-    df = pd.DataFrame([ids, r64_selections,r32_selections,s16_selections,e8_selections,f4_selections, ncg_selections, r64_points, r32_points, s16_points, e8_points,f4_points,ncg_points,rewards])
+    df = pd.DataFrame([ids, r64_selections,r32_selections,s16_selections,e8_selections,f4_selections, ncg_selections, r64_points, r32_points, s16_points, e8_points,f4_points,ncg_points,rewards, submissions])
     df = df.transpose()
-    df.columns = ['id','r64_selections', 'r32_selections', 'r16_selections', 'e8_selections', 'f4_selections', 'ncg_selections', 'r64_points', 'r32_points', 's16_points', 'e8_points', 'f4_points', 'ncg_points', 'roi']
+    df.columns = ['id','r64_selections', 'r32_selections', 'r16_selections', 'e8_selections', 'f4_selections', 'ncg_selections', 'r64_points', 'r32_points', 's16_points', 'e8_points', 'f4_points', 'ncg_points', 'roi','user_submitted_bracket']
 
+    st.dataframe(df)
+    
+    ids = []
+    names = []
+    seeds = []
+    regions = []
+    r64_own = []
+    r32_own = []
+    s16_own = []
+    e8_own = []
+    f4_own = []
+    ncg_own = []
+    r64_sim_results = []
+    r32_sim_results = []
+    s16_sim_results = []
+    e8_sim_results = []
+    f4_sim_results = []
+    ncg_sim_results = []
+    for t in tourney.teams:
+        ids.append(t.id)
+        names.append(t.name)
+        seeds.append(t.seed)
+        regions.append(t.region)
+        r64_own.append(t.own['R64'])
+        r32_own.append(t.own['R32'])
+        s16_own.append(t.own['S16'])
+        e8_own.append(t.own['E8'])
+        f4_own.append(t.own['F4'])
+        ncg_own.append(t.own['NCG'])
+        r64_sim_results.append(t.sim_results['R64']/sims)
+        r32_sim_results.append(t.sim_results['R32']/sims)
+        s16_sim_results.append(t.sim_results['S16']/sims)
+        e8_sim_results.append(t.sim_results['E8']/sims)
+        f4_sim_results.append(t.sim_results['F4']/sims)
+        ncg_sim_results.append(t.sim_results['NCG']/sims)
+    df = pd.DataFrame([ids,     names ,    seeds ,    regions ,    r64_sim_results ,
+    r32_sim_results ,
+    s16_sim_results ,
+    e8_sim_results ,
+    f4_sim_results,
+    ncg_sim_results,
+    r64_own ,
+    r32_own ,
+    s16_own ,
+    e8_own ,
+    f4_own ,
+    ncg_own ])      
+    df = df.transpose()
+    df.columns = ['id','name','seed','region', 'R64 Sim Win Prob', 'R32 Sim Win Prob', 'S16 Sim Win Prob' , 'E8 Sim Win Prob', 'F4 Sim Win Prob', 'Champ Sim Win Prob', 'R64 Public Pick %', 'R32 Public Pick %', 'S16 Public Pick %','E8 Public Pick %','F4 Public Pick %','Champ Public Pick %']
+    
+    df['R64 Leverage'] = df['R64 Sim Win Prob'] - df['R64 Public Pick %']
+    df['R32 Leverage'] = df['R32 Sim Win Prob'] - df['R32 Public Pick %']
+    df['S16 Leverage'] = df['S16 Sim Win Prob'] - df['S16 Public Pick %']
+    df['E8 Leverage'] = df['E8 Sim Win Prob'] - df['E8 Public Pick %']
+    df['F4 Leverage'] = df['F4 Sim Win Prob'] - df['F4 Public Pick %']
+    df['Champ Leverage'] = df['Champ Sim Win Prob'] - df['Champ Public Pick %']
+    
     st.dataframe(df)
