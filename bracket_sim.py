@@ -21,6 +21,11 @@ entries = form.number_input('Number of Pool Contestants',value=16)
 entry_fee = form.number_input('Pool Entry Fee',value=20)
 # Now add a submit button to the form:
 
+@st.cache_data
+def convert_df_to_csv(df):
+  # IMPORTANT: Cache the conversion to prevent computation on every rerun
+  return df.to_csv(index=False).encode('utf-8')
+
 
 uploaded_contest_file = form.file_uploader("Upload Contest CSV")
 
@@ -459,6 +464,12 @@ if submitted:
     df.columns = ['id','r64_selections', 'r32_selections', 'r16_selections', 'e8_selections', 'f4_selections', 'ncg_selections', 'r64_points', 'r32_points', 's16_points', 'e8_points', 'f4_points', 'ncg_points', 'roi','user_submitted_bracket']
 
     st.dataframe(df)
+    st.download_button(
+    label="Download Pool Sims as CSV",
+    data=convert_df_to_csv(df),
+    file_name='pool_sims.csv',
+    mime='text/csv',
+    )
     
     ids = []
     names = []
@@ -493,7 +504,7 @@ if submitted:
         e8_sim_results.append(t.sim_results['E8']/sims)
         f4_sim_results.append(t.sim_results['F4']/sims)
         ncg_sim_results.append(t.sim_results['NCG']/sims)
-    df = pd.DataFrame([ids,     names ,    seeds ,    regions ,    r64_sim_results ,
+    teams_df = pd.DataFrame([ids,     names ,    seeds ,    regions ,    r64_sim_results ,
     r32_sim_results ,
     s16_sim_results ,
     e8_sim_results ,
@@ -505,14 +516,21 @@ if submitted:
     e8_own ,
     f4_own ,
     ncg_own ])      
-    df = df.transpose()
-    df.columns = ['id','name','seed','region', 'R64 Sim Win Prob', 'R32 Sim Win Prob', 'S16 Sim Win Prob' , 'E8 Sim Win Prob', 'F4 Sim Win Prob', 'Champ Sim Win Prob', 'R64 Public Pick %', 'R32 Public Pick %', 'S16 Public Pick %','E8 Public Pick %','F4 Public Pick %','Champ Public Pick %']
+    teams_df = teams_df.transpose()
+    teams_df.columns = ['id','name','seed','region', 'R64 Sim Win Prob', 'R32 Sim Win Prob', 'S16 Sim Win Prob' , 'E8 Sim Win Prob', 'F4 Sim Win Prob', 'Champ Sim Win Prob', 'R64 Public Pick %', 'R32 Public Pick %', 'S16 Public Pick %','E8 Public Pick %','F4 Public Pick %','Champ Public Pick %']
     
-    df['R64 Leverage'] = df['R64 Sim Win Prob'] - df['R64 Public Pick %']
-    df['R32 Leverage'] = df['R32 Sim Win Prob'] - df['R32 Public Pick %']
-    df['S16 Leverage'] = df['S16 Sim Win Prob'] - df['S16 Public Pick %']
-    df['E8 Leverage'] = df['E8 Sim Win Prob'] - df['E8 Public Pick %']
-    df['F4 Leverage'] = df['F4 Sim Win Prob'] - df['F4 Public Pick %']
-    df['Champ Leverage'] = df['Champ Sim Win Prob'] - df['Champ Public Pick %']
+    teams_df['R64 Leverage'] = teams_df['R64 Sim Win Prob'] - teams_df['R64 Public Pick %']
+    teams_df['R32 Leverage'] = teams_df['R32 Sim Win Prob'] - teams_df['R32 Public Pick %']
+    teams_df['S16 Leverage'] = teams_df['S16 Sim Win Prob'] - teams_df['S16 Public Pick %']
+    teams_df['E8 Leverage'] = teams_df['E8 Sim Win Prob'] - teams_df['E8 Public Pick %']
+    teams_df['F4 Leverage'] = teams_df['F4 Sim Win Prob'] - teams_df['F4 Public Pick %']
+    teams_df['Champ Leverage'] = teams_df['Champ Sim Win Prob'] - teams_df['Champ Public Pick %']
     
-    st.dataframe(df)
+    st.dataframe(teams_df)
+    
+    st.download_button(
+    label="Download Team Results as CSV",
+    data=convert_df_to_csv(df),
+    file_name='team_results.csv',
+    mime='text/csv',
+    )
