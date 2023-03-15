@@ -16,6 +16,9 @@ with open('data/contest_info/payout_structure.csv') as f:
 
 with open('data/contest_info/sample_bracket.csv') as f:
     st.download_button('Download Sample Bracket Selections CSV', f, 'sample_bracket.csv')
+    
+with open('data/contest_info/points_structure.csv') as f:
+    st.download_button('Download Sample Points CSV', f, 'points_structure.csv')
 
 entries = form.number_input('Number of Pool Contestants',value=16)
 entry_fee = form.number_input('Pool Entry Fee',value=20)
@@ -28,6 +31,7 @@ def convert_df_to_csv(df):
 
 
 uploaded_contest_file = form.file_uploader("Upload Contest CSV")
+uploaded_points_file = form.file_uploader("Upload Pool Points Rules")
 
 option = form.selectbox(
     'Import Custom Selections?',
@@ -37,6 +41,8 @@ if option == 'I have my own picks to upload':
     uploaded_selection_file = form.file_uploader("Upload Selections CSV")
 else:
     uploaded_selection_file = None
+
+add_seeds_flag = form.radio("Does your Pool add points for the seeds of every winner?", ["Yes", "No"])
     
 submitted = form.form_submit_button("Submit")   
 
@@ -172,17 +178,6 @@ round_names = {
     6: 'Championship'
 }
 
-points_structure = {
-    0: 0,
-    1: 10,
-    2: 20,
-    3: 40,
-    4: 80,
-    5: 160,
-    6: 320
-}
-
-
 class Pool():
     def __init__(self, year, teams, contest_entrants, contest_prize_structure, points_structure, entry_fee):
         self.current_round = 0
@@ -289,8 +284,12 @@ class Pool():
         loser.eliminated = 1       
         for e in self.entrants:
             if winner.id in e.selections[self.round_names[self.current_round]]:
-                e.tourney_points[self.round_names[self.current_round]] += self.points_structure[self.current_round]
-                e.total_points[self.round_names[self.current_round]] += self.points_structure[self.current_round]
+                e.tourney_points[self.round_names[self.current_round]] += self.points_structure['Points'][self.round_names[self.current_round]]
+                e.total_points[self.round_names[self.current_round]] += self.points_structure['Points'][self.round_names[self.current_round]]
+                if self.add_seed_to_points:
+                    e.tourney_points[self.round_names[self.current_round]] += winner.seed
+                    e.total_points[self.round_names[self.current_round]] += winner.seed
+                                      
         
     def generateBracketSelections(self):
         for i in range(self.contest_entrants):
@@ -394,7 +393,12 @@ class Entrant:
         self.total_points = {'R64':0, 'R32':0,'S16':0,'E8':0,'F4':0, 'NCG':0}
         self.finish_positions = []
         self.user_submitted = False
-          
+
+
+points_df = pd.read_csv(uploaded_points_file)
+
+points_structure = points_df.set_index('Round').to_dict()
+       
 if submitted:
     # Can be used wherever a "file-like" object is accepted:
     payout_structure = pd.read_csv(uploaded_contest_file)
@@ -404,7 +408,8 @@ if submitted:
     #st.write(payout_structure)
 
     tourney = Pool(2023, teams, entries, contest_prize_structure, points_structure, entry_fee)
-
+    if add_seeds_flag == "Yes":
+        tourney.add_seed_to_points = True
     tourney.generateBracketSelections()
 
     if uploaded_selection_file is not None:
