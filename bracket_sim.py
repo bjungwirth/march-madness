@@ -9,6 +9,20 @@ import operator
 import numpy as np
 import streamlit as st
 
+st.title("March Madness Bracket Pool Simulator")
+st.header("What the hell is this?")
+
+st.markdown("This application allows you to upload your own bracket and simulate it against a pool of brackets generated using ESPN's public bracket picks data. The win probabilities for each matchup are generated via the GBM model that won the 2018 Women's NCAA Tournament and the 2022 Men's NCAA Tournament and has posted the lowest log-loss for any model ever posted on Kaggle's March Madness competitions (https://www.kaggle.com/code/jtrotman/winning-submission-improved-to-0-498).")
+
+st.header("How do I use this?")
+st.markdown("Enter the number of entries in your chosen pool, choose the pool entry fee (if it's a free pool use a tiny amount like 0.1), then download the sample CSVs and customize them according to the rules of your pool. Then upload the edited files and click Submit!")
+
+st.header("Can I just have the algorithm choose my bracket?")
+st.markdown("You can! Just choose 'I'm too lazy to submit my own picks' in the 'Import Custom Selections' dropdown and then you can simply choose the bracket with the best ROI from the table after the simulation is complete. If you lose, just blame Skynet")
+
+st.header("Who built this?")
+st.markdown("I did! If you have any questions you can contact me via twitter: https://twitter.com/blainejungwirth")
+    
 form = st.form("Sim Options")
 
 with open('data/contest_info/payout_structure.csv') as f:
@@ -97,6 +111,8 @@ for i,r in df.iterrows():
                     name = 'arizona st'
                 if name == 'nev':
                     name = 'nevada'
+                if name == 'texas amcc':
+                    name = 'texas am corpus christi'
                 id = spellings[name]['TeamID']
                 if id not in team_dict.keys():
                     team_dict[id] = {'seed':seed,'name':name, 'id':id, 'region':'','first_four':True}
@@ -121,10 +137,14 @@ for i,r in df.iterrows():
                 name = 'arizona st'
             if name == 'nev':
                 name = 'nevada'
+            if name == 'texas amcc':
+                name = 'texas am corpus christi'
             id = spellings[name]['TeamID']
             if id not in team_dict.keys():
                 team_dict[id] = {'seed':seed,'name':name, 'id':id, 'region':'','first_four':False}
             team_dict[id][col] = {'espn_own':pct}
+
+
 
 seeds = pd.read_csv('data/kaggle/MNCAATourneySeeds.csv')
 
@@ -394,10 +414,9 @@ class Entrant:
         self.finish_positions = []
         self.user_submitted = False
 
-
-points_df = pd.read_csv(uploaded_points_file)
-
-points_structure = points_df.set_index('Round').to_dict()
+if uploaded_points_file:
+    points_df = pd.read_csv(uploaded_points_file)
+    points_structure = points_df.set_index('Round').to_dict()
        
 if submitted:
     # Can be used wherever a "file-like" object is accepted:
@@ -539,3 +558,4 @@ if submitted:
     file_name='team_results.csv',
     mime='text/csv',
     )
+    
