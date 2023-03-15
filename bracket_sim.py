@@ -530,7 +530,7 @@ if submitted:
     
     st.download_button(
     label="Download Team Results as CSV",
-    data=convert_df_to_csv(df),
+    data=convert_df_to_csv(teams_df),
     file_name='team_results.csv',
     mime='text/csv',
     )
