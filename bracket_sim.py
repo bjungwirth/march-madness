@@ -99,14 +99,15 @@ team_name_fixes = {
     'n carolina': 'north carolina',
     'fla atlantic': 'florida atlantic',
     'wash state': 'washington st',
-    'st marys': "st. mary's",
+    'st marys': "saint-marys",
     's carolina': 'south carolina',
     'miss state': 'mississippi st',
     'james mad' : 'james madison',
     'grd canyon': 'grand canyon',
     'col charlestn': 'college of charleston',
     'lg beach st': 'long beach st',
-    'st peters': "st. peter's",
+    'st peters': "saint-peters",
+    'texas a&m': 'texas am',
 }
 
 team_dict = {}
