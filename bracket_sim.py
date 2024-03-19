@@ -137,6 +137,7 @@ for i, r in df.iterrows():
         if t2_id is None:
             print(f"Team {t2} not found in spellings.")
         # Add first team to the dictionary if it doesn't exist.
+        print(t1,t1_id, t2, t2_id)
         if t1_id not in team_dict:
             team_dict[t1_id] = {
                 'seed': seed,
@@ -184,11 +185,8 @@ seeds = pd.read_csv('data/kaggle/MNCAATourneySeeds.csv')
 seeds = seeds[seeds['Season']==2024]
 
 for i,r in seeds.iterrows():
-    try:
-        team_dict[r['TeamID']]['region'] = r['Seed'][0]
-        team_dict[r['TeamID']]['seed'] = int(r['Seed'][1:3])
-    except KeyError as e:
-        print(f"KeyError for TeamID: {r['TeamID']}. Available keys: {list(team_dict.keys())}")
+    team_dict[r['TeamID']]['region'] = r['Seed'][0]
+    team_dict[r['TeamID']]['seed'] = int(r['Seed'][1:3])
     if r['Seed'][-1] == 'a' or r['Seed'][-1] == 'b':
        team_dict[r['TeamID']]['first_four'] = True
 
