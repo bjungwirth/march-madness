@@ -126,10 +126,16 @@ for i, r in df.iterrows():
     # Handle the case for first four teams.
     if first_four:
         t1, t2 = name.split('/')
+        t1 = t1.strip()
+        t2 = t2.strip()
         t1 = team_name_fixes.get(t1, t1)  # Apply fixes if available and get the ID
         t2 = team_name_fixes.get(t2, t2)  # Apply fixes if available and get the ID
         t1_id = spellings.get(t1, {}).get('TeamID', None)  # Check if the team name is in the spellings dictionary and get the ID
         t2_id = spellings.get(t2, {}).get('TeamID', None)  # Check if the team name is in the spellings dictionary and get the ID
+        if t1_id is None:
+            print(f"Team {t1} not found in spellings.")
+        if t2_id is None:
+            print(f"Team {t2} not found in spellings.")
         # Add first team to the dictionary if it doesn't exist.
         if t1_id not in team_dict:
             team_dict[t1_id] = {
