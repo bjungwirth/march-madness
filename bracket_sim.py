@@ -80,7 +80,7 @@ team_name_fixes = {
     'bsu' : 'boise st.',
     'colo' : 'colorado',
     'uva' : 'virginia',
-    'csu': 'colorado st.',
+    'csu': 'colorado-state',
     'how': 'howard',
     'wag': 'wagner',
     'mtst': 'montana st.',
