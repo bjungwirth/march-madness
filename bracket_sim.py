@@ -83,7 +83,7 @@ team_name_fixes = {
     'csu': 'colorado state',
     'how': 'howard',
     'wag': 'wagner',
-    'mtst': 'montana st.',
+    'mtst': 'montana state',
     'gram': 'grambling',
     'miami': 'miami fl',
     'fau': 'florida atlantic',
