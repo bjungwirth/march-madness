@@ -182,7 +182,6 @@ for i,r in seeds.iterrows():
         team_dict[r['TeamID']]['seed'] = int(r['Seed'][1:3])
     except KeyError as e:
         print(f"KeyError for TeamID: {r['TeamID']}. Available keys: {list(team_dict.keys())}")
-        raise e  # Optionally re-raise the exception or handle it as needed
     if r['Seed'][-1] == 'a' or r['Seed'][-1] == 'b':
        team_dict[r['TeamID']]['first_four'] = True
 
