@@ -184,6 +184,8 @@ seeds = pd.read_csv('data/kaggle/MNCAATourneySeeds.csv')
 
 seeds = seeds[seeds['Season']==2024]
 
+print(team_dict.keys())
+
 for i,r in seeds.iterrows():
     team_dict[r['TeamID']]['region'] = r['Seed'][0]
     team_dict[r['TeamID']]['seed'] = int(r['Seed'][1:3])
