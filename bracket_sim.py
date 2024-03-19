@@ -10,18 +10,18 @@ import numpy as np
 import streamlit as st
 
 st.title("March Madness Bracket Pool Simulator")
-st.header("What the hell is this?")
+# st.header("What the hell is this?")
 
-st.markdown("This application allows you to upload your own bracket and simulate it against a pool of brackets generated using ESPN's public bracket picks data. The win probabilities for each matchup are generated via the GBM model that won the 2018 Women's NCAA Tournament and the 2022 Men's NCAA Tournament and has posted the lowest log-loss for any model ever posted on Kaggle's March Madness competitions (https://www.kaggle.com/code/jtrotman/winning-submission-improved-to-0-498).")
+# st.markdown("This application allows you to upload your own bracket and simulate it against a pool of brackets generated using ESPN's public bracket picks data. The win probabilities for each matchup are generated via the GBM model that won the 2018 Women's NCAA Tournament and the 2022 Men's NCAA Tournament and has posted the lowest log-loss for any model ever posted on Kaggle's March Madness competitions (https://www.kaggle.com/code/jtrotman/winning-submission-improved-to-0-498).")
 
-st.header("How do I use this?")
-st.markdown("Enter the number of entries in your chosen pool, choose the pool entry fee (if it's a free pool use a tiny amount like 0.1), then download the sample CSVs and customize them according to the rules of your pool. Then upload the edited files and click Submit!")
+# st.header("How do I use this?")
+# st.markdown("Enter the number of entries in your chosen pool, choose the pool entry fee (if it's a free pool use a tiny amount like 0.1), then download the sample CSVs and customize them according to the rules of your pool. Then upload the edited files and click Submit!")
 
-st.header("Can I just have the algorithm choose my bracket?")
-st.markdown("You can! Just choose 'I'm too lazy to submit my own picks' in the 'Import Custom Selections' dropdown and then you can simply choose the bracket with the best ROI from the table after the simulation is complete. If you lose, just blame Skynet")
+# st.header("Can I just have the algorithm choose my bracket?")
+# st.markdown("You can! Just choose 'I'm too lazy to submit my own picks' in the 'Import Custom Selections' dropdown and then you can simply choose the bracket with the best ROI from the table after the simulation is complete. If you lose, just blame Skynet")
 
-st.header("Who built this?")
-st.markdown("I did! If you have any questions you can contact me via twitter: https://twitter.com/blainejungwirth")
+# st.header("Who built this?")
+# st.markdown("I did! If you have any questions you can contact me via twitter: https://twitter.com/blainejungwirth")
     
 form = st.form("Sim Options")
 
@@ -60,20 +60,8 @@ add_seeds_flag = form.radio("Does your Pool add points for the seeds of every wi
     
 submitted = form.form_submit_button("Submit")   
 
-url = 'https://fantasy.espn.com/tournament-challenge-bracket/2023/en/whopickedwhom'
-# Create object page
-page = requests.get(url)
-
-soup = BeautifulSoup(page.text, 'html.parser')
-
-# Creating list with all tables
-tables = soup.find_all('table')
-
-#  Looking for the table with the classes 'wikitable' and 'sortable'
-table = soup.find('table', class_='wpw-table')
-
-# Defining of the dataframe
-df = pd.read_html(str(table))[0]
+df = pd.read_csv('data/public_picks.csv')
+df = df.dropna()
 
 spellings = pd.read_csv('data/kaggle/MTeamSpellings.csv', encoding='latin-1')
 
@@ -82,73 +70,111 @@ spellings = spellings.drop_duplicates(subset='TeamNameSpelling')
 spellings = spellings.set_index('TeamNameSpelling').to_dict(orient='index')
 
 whitelist = set('abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-        
+
+df.head()
+
+df['Team'] = df['Team'].str.lower()
+
+#fill the team dictionary with the team names and ids including the changed spellings above
+team_name_fixes = {
+    'bsu' : 'boise st.',
+    'colo' : 'colorado',
+    'uva' : 'virginia',
+    'csu': 'colorado st.',
+    'how': 'howard',
+    'wag': 'wagner',
+    'mtst': 'montana st.',
+    'gram': 'grambling st.',
+    'miami': 'miami fl',
+    'fau': 'florida atlantic',
+    'msst': 'mississippi st',
+    'amcc': 'a m corpus chris',
+    'smo': 'se missouri st',
+    'txso': 'tx southern',
+    'fdu': 'fairleigh dickinson',
+    'asu': 'arizona st',
+    'nev': 'nevada',
+    'texas amcc': 'texas am corpus christi',
+    'tx christian': 'tcu',
+    'n carolina': 'north carolina',
+    'fla atlantic': 'florida atlantic',
+    'wash state': 'washington st',
+    'st marys': "st. mary's",
+    's carolina': 'south carolina',
+    'miss state': 'mississippi st',
+    'james mad' : 'james madison',
+    'grd canyon': 'grand canyon',
+    'col charlestn': 'college of charleston',
+    'lg beach st': 'long beach st',
+    'st peters': "st. peter's",
+}
+
 team_dict = {}
-for i,r in df.iterrows():
-    for col in r.index:
-        seed = int(re.findall(r'^(\d{1,2})', r[col])[0])
-        pct = float(re.findall(r'-(\d{1,2}.\d)', r[col])[0])
-        if re.search(r'/',r[col]):
-            names = re.split(r'/',r[col])
-            pct = pct/2
-            for name in names:
-                name = ''.join(filter(whitelist.__contains__, name)).lower()
-                if name == 'miami':
-                    name = 'miami fl'
-                if name == 'fau':
-                    name = 'florida atlantic'
-                if name == 'msst':
-                    name = 'mississippi st'
-                if name == 'amcc':
-                    name = 'a m corpus chris'
-                if name == 'smo':
-                    name = 'se missouri st'
-                if name == 'txso':
-                    name = 'tx southern'
-                if name == 'fdu':
-                    name = 'fairleigh dickinson'
-                if name == 'asu':
-                    name = 'arizona st'
-                if name == 'nev':
-                    name = 'nevada'
-                if name == 'texas amcc':
-                    name = 'texas am corpus christi'
-                id = spellings[name]['TeamID']
-                if id not in team_dict.keys():
-                    team_dict[id] = {'seed':seed,'name':name, 'id':id, 'region':'','first_four':True}
-                team_dict[id][col] = {'espn_own':pct}     
+# Try to find the team in the spellings dictionary to get team IDs, print the teams that can't be found.
+for i, r in df.iterrows():
+    name = r['Team']
+    seed = r['Seed']
+    region = r['Region']
+    first_four = '/' in name  # Check if the team is in the first four
+    r64 = float(r['R64'].strip('%')) / 100
+    r32 = float(r['R32'].strip('%')) / 100
+    s16 = float(r['S16'].strip('%')) / 100
+    e8 = float(r['E8'].strip('%')) / 100
+    f4 = float(r['F4'].strip('%')) / 100
+    ncg = float(r['NCG'].strip('%')) / 100
+    # Handle the case for first four teams.
+    if first_four:
+        t1, t2 = name.split('/')
+        t1 = team_name_fixes.get(t1, t1)  # Apply fixes if available and get the ID
+        t2 = team_name_fixes.get(t2, t2)  # Apply fixes if available and get the ID
+        t1_id = spellings.get(t1, {}).get('TeamID', None)  # Check if the team name is in the spellings dictionary and get the ID
+        t2_id = spellings.get(t2, {}).get('TeamID', None)  # Check if the team name is in the spellings dictionary and get the ID
+        # Add first team to the dictionary if it doesn't exist.
+        if t1_id not in team_dict:
+            team_dict[t1_id] = {
+                'seed': seed,
+                'name': t1,
+                'id': t1_id,
+                'region': region,
+                'first_four': True,
+                'own': {'R64': r64, 'R32': r32, 'S16': s16, 'E8': e8, 'F4': f4, 'NCG': ncg},
+            }
+
+        # Add second team to the dictionary if it doesn't exist.
+        if t2_id not in team_dict:
+            team_dict[t2_id] = {
+                'seed': seed,
+                'name': t2,
+                'id': t2_id,
+                'region': region,
+                'first_four': True,
+                'own': {'R64': r64, 'R32': r32, 'S16': s16, 'E8': e8, 'F4': f4, 'NCG': ncg},
+            }
+    else:
+        # Apply fixes if available and get the ID.
+        team_id = team_name_fixes.get(name, name)
+
+        # Check if the team name is in the spellings dictionary and get the ID.
+        if team_id in spellings:
+            team_id = spellings[team_id]['TeamID']
         else:
-            name = ''.join(filter(whitelist.__contains__, r[col])).lower()
-            if name == 'miami':
-                name = 'miami fl'
-            if name == 'fau':
-                name = 'florida atlantic'
-            if name == 'msst':
-                name = 'mississippi st'
-            if name == 'amcc':
-                name = 'a m corpus chris'
-            if name == 'smo':
-                name = 'se missouri st'
-            if name == 'txso':
-                name = 'tx southern'
-            if name == 'fdu':
-                name = 'fairleigh dickinson'
-            if name == 'asu':
-                name = 'arizona st'
-            if name == 'nev':
-                name = 'nevada'
-            if name == 'texas amcc':
-                name = 'texas am corpus christi'
-            id = spellings[name]['TeamID']
-            if id not in team_dict.keys():
-                team_dict[id] = {'seed':seed,'name':name, 'id':id, 'region':'','first_four':False}
-            team_dict[id][col] = {'espn_own':pct}
+            print(f"Team {name} not found in spellings.")
+            continue  # Skip this team if not found.
 
-
-
+        # Add the team to the dictionary if it doesn't exist.
+        if team_id not in team_dict:
+            team_dict[team_id] = {
+                'seed_num': seed,
+                'name': name,
+                'id': team_id,
+                'region': region,
+                'first_four': False,
+                'own': {'R64': r64, 'R32': r32, 'S16': s16, 'E8': e8, 'F4': f4, 'NCG': ncg},
+            }
+      
 seeds = pd.read_csv('data/kaggle/MNCAATourneySeeds.csv')
 
-seeds = seeds[seeds['Season']==2023]
+seeds = seeds[seeds['Season']==2024]
 
 for i,r in seeds.iterrows():
     team_dict[r['TeamID']]['region'] = r['Seed'][0]
@@ -158,14 +184,14 @@ for i,r in seeds.iterrows():
 
     
 class Team:
-    def __init__(self, name, id, seed, region, first_four):
+    def __init__(self, name, id, seed, region, first_four, own):
         if type(name) != str: raise TypeError("name needs to be of type str")
         if type(seed) != int: raise TypeError("seed needs to be of type int")
         self.name = name
         self.seed = seed
         self.region = region
         self.first_four = first_four
-        self.own = {'R64':0,'R32':0,'S16':0,'E8':0,'F4':0, 'NCG':0}
+        self.own = {'R64': own['R64'], 'R32': own['R32'], 'S16': own['S16'], 'E8': own['E8'], 'F4': own['F4'], 'NCG': own['NCG'], 'first_four':0.5    }
         self.sim_results = {'first_four':0,'R64':0,'R32':0,'S16':0,'E8':0,'F4':0, 'NCG':0}
         self.eliminated = 0
         self.id = id
@@ -176,16 +202,11 @@ class Team:
 
 teams = []
 for k in team_dict.keys():
-    t = Team(team_dict[k]['name'], team_dict[k]['id'], team_dict[k]['seed'], team_dict[k]['region'], team_dict[k]['first_four'])
-    t.own['R64'] = team_dict[k]['R64']['espn_own']/100
-    t.own['R32'] = team_dict[k]['R32']['espn_own']/100
-    t.own['S16'] = team_dict[k]['S16']['espn_own']/100
-    t.own['E8'] = team_dict[k]['E8']['espn_own']/100
-    t.own['F4'] = team_dict[k]['F4']['espn_own']/100
-    t.own['NCG'] = team_dict[k]['NCG']['espn_own']/100
+    t = Team(team_dict[k]['name'], team_dict[k]['id'], team_dict[k]['seed'], team_dict[k]['region'], team_dict[k]['first_four'], team_dict[k]['own'])
     teams.append(t)
 
 matchup_probabilities = pd.read_csv('data/game_predictions.csv')
+matchup_probabilities = matchup_probabilities.drop_duplicates()
 matchup_probabilities = matchup_probabilities.set_index('ID').to_dict(orient='index')
 
 round_names = {
@@ -395,10 +416,10 @@ class FirstFour:
                 for x in self.teams:
                     if x.region == t.region and x.seed == t.seed and x.id != t.id and x.id not in used_teams:
                         if t.id > x.id:
-                            self.games.append(Game(x, t, 2023, matchup_probabilities))
+                            self.games.append(Game(x, t, 2024, matchup_probabilities))
                             i+= 1
                         else:
-                            self.games.append(Game(t, x, 2023, matchup_probabilities)) 
+                            self.games.append(Game(t, x, 2024, matchup_probabilities)) 
                             i+= 1
                         used_teams.append(x)
             used_teams.append(t.id)     
@@ -426,7 +447,7 @@ if submitted:
         contest_prize_structure[i]= r['Payout']
     #st.write(payout_structure)
 
-    tourney = Pool(2023, teams, entries, contest_prize_structure, points_structure, entry_fee)
+    tourney = Pool(2024, teams, entries, contest_prize_structure, points_structure, entry_fee)
     if add_seeds_flag == "Yes":
         tourney.add_seed_to_points = True
     tourney.generateBracketSelections()

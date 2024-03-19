@@ -1,13 +1,14 @@
-library(dplyr)
-library(xgboost)
-library(lme4)
+require(dplyr)
+require(xgboost)
+require(lme4)
 
 regresults <- read.csv("data/kaggle/MRegularSeasonDetailedResults.csv")
 results <- read.csv("data/kaggle/MNCAATourneyDetailedResults.csv")
-sub <- read.csv("data/kaggle/SampleSubmission2023.csv")
+sub <- read.csv("data/kaggle/sample_submission.csv")
 seeds <- read.csv("data/kaggle/MNCAATourneySeeds.csv")
+seeds_2024 <- read.csv("data/kaggle/2024_tourney_seeds.csv")
 
-seeds$Seed = as.numeric(substring(seeds$Seed,2,4))
+seeds$Seed =  as.numeric(gsub("[^0-9]", "", seeds$Seed))
 
 
 ### Collect regular season results - double the data by swapping team positions
@@ -179,11 +180,23 @@ for (i in 1:10) {
 
 ### Run predictions
 
-sub$Season = 2023
-sub$T1 = as.numeric(substring(sub$ID,6,9))
-sub$T2 = as.numeric(substring(sub$ID,11,14))
+sub$Season = 2024
 
-Z = sub %>% 
+seeds_2024 <- seeds %>% 
+  filter(Season == 2-24)
+
+seeds_2024
+
+matchups <- expand.grid(T1 = seeds_2024$TeamID, T2 = seeds_2024$TeamID) %>%
+  # Ensure T1 is always less than T2 to avoid duplicates
+  filter(T1 < T2) %>%
+  # Create the ID in the format "2024_T1_T2"
+  mutate(ID = paste("2024", T1, T2, sep = "_"))
+
+matchups$Season = 2024
+
+
+Z = matchups %>% 
   left_join(season_summary_X1, by = c("Season", "T1")) %>% 
   left_join(season_summary_X2, by = c("Season", "T2")) %>%
   left_join(select(seeds, Season, T1 = TeamID, Seed1 = Seed), by = c("Season", "T1")) %>% 
@@ -202,8 +215,10 @@ for (i in 1:10) {
   point_diff_preds[[i]] = preds
 }
 
+
 Z$Pred = Reduce("+", probs) / 10
 Z$Pt_Diff = Reduce("+", point_diff_preds) / 10
+
 
 write.csv(select(Z, ID, Pred, Pt_Diff), "sub.csv", row.names = FALSE)
 
