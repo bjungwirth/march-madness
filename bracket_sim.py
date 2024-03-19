@@ -77,14 +77,14 @@ df['Team'] = df['Team'].str.lower()
 
 #fill the team dictionary with the team names and ids including the changed spellings above
 team_name_fixes = {
-    'bsu' : 'boise st.',
+    'bsu' : 'boise state',
     'colo' : 'colorado',
     'uva' : 'virginia',
-    'csu': 'colorado-state',
+    'csu': 'colorado state',
     'how': 'howard',
     'wag': 'wagner',
     'mtst': 'montana st.',
-    'gram': 'grambling st.',
+    'gram': 'grambling',
     'miami': 'miami fl',
     'fau': 'florida atlantic',
     'msst': 'mississippi st',
