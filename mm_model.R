@@ -6,7 +6,7 @@ regresults <- read.csv("data/kaggle/MRegularSeasonDetailedResults.csv")
 results <- read.csv("data/kaggle/MNCAATourneyDetailedResults.csv")
 sub <- read.csv("data/kaggle/sample_submission.csv")
 seeds <- read.csv("data/kaggle/MNCAATourneySeeds.csv")
-seeds_2024 <- read.csv("data/kaggle/2024_tourney_seeds.csv")
+seeds_2025 <- read.csv("data/kaggle/2025_tourney_seeds.csv")
 
 seeds$Seed =  as.numeric(gsub("[^0-9]", "", seeds$Seed))
 
@@ -46,6 +46,10 @@ for (season in unique(X$Season)) {
   quality[[season]] = data.frame(Season = season, Team_Id = as.numeric(row.names(random_effects)), quality = exp(random_effects[,"(Intercept)"]))
 }
 quality = do.call(rbind, quality)
+
+
+# Export team quality metrics to CSV
+write.csv(quality, "data/team_quality_metrics.csv", row.names = FALSE)
 
 
 ### Regular season statistics
@@ -158,6 +162,8 @@ for (i in 1:10) {
   
 }
 
+# Export features for XGBoost retraining
+write.csv(data_matrix[, c("T1", "T2", "Season", features)], "data/xgb_features.csv", row.names = FALSE)
 
 ### Build submission models
 
@@ -180,20 +186,20 @@ for (i in 1:10) {
 
 ### Run predictions
 
-sub$Season = 2024
+sub$Season = 2025
 
-seeds_2024 <- seeds %>% 
+seeds_2025 <- seeds %>% 
   filter(Season == 2-24)
 
-seeds_2024
+seeds_2025
 
-matchups <- expand.grid(T1 = seeds_2024$TeamID, T2 = seeds_2024$TeamID) %>%
+matchups <- expand.grid(T1 = seeds_2025$TeamID, T2 = seeds_2025$TeamID) %>%
   # Ensure T1 is always less than T2 to avoid duplicates
   filter(T1 < T2) %>%
-  # Create the ID in the format "2024_T1_T2"
-  mutate(ID = paste("2024", T1, T2, sep = "_"))
+  # Create the ID in the format "2025_T1_T2"
+  mutate(ID = paste("2025", T1, T2, sep = "_"))
 
-matchups$Season = 2024
+matchups$Season = 2025
 
 
 Z = matchups %>% 
@@ -222,3 +228,9 @@ Z$Pt_Diff = Reduce("+", point_diff_preds) / 10
 
 write.csv(select(Z, ID, Pred, Pt_Diff), "sub.csv", row.names = FALSE)
 
+# Export XGBoost model parameters
+xgb_params_df = data.frame(
+  parameter = names(xgb_parameters),
+  value = as.character(xgb_parameters)
+)
+write.csv(xgb_params_df, "data/xgb_parameters.csv", row.names = FALSE)

@@ -107,12 +107,14 @@ team_name_fixes = {
     'col charlestn': 'college of charleston',
     'lg beach st': 'long beach st',
     'st peters': "saint-peters",
-    'texas a&m': 'texas am',
+    'texas a&m': 'texas-am',
+    'texas am': 'texas-am'
 }
 
 team_dict = {}
 # Try to find the team in the spellings dictionary to get team IDs, print the teams that can't be found.
 for i, r in df.iterrows():
+    #print(r['Team'])
     name = r['Team']
     seed = r['Seed']
     region = r['Region']
@@ -137,7 +139,7 @@ for i, r in df.iterrows():
         if t2_id is None:
             print(f"Team {t2} not found in spellings.")
         # Add first team to the dictionary if it doesn't exist.
-        print(t1,t1_id, t2, t2_id)
+        #print(t1,t1_id, t2, t2_id)
         if t1_id not in team_dict:
             team_dict[t1_id] = {
                 'seed': seed,
@@ -182,9 +184,12 @@ for i, r in df.iterrows():
       
 seeds = pd.read_csv('data/kaggle/MNCAATourneySeeds.csv')
 
-seeds = seeds[seeds['Season']==2024]
+seeds = seeds[seeds['Season']==2025]
 
-print(team_dict.keys())
+#print(team_dict.keys())
+
+#for v,k in team_dict.items():
+#    print(v,k)
 
 for i,r in seeds.iterrows():
     team_dict[r['TeamID']]['region'] = r['Seed'][0]
@@ -210,9 +215,64 @@ class Team:
     def __repr__(self):
         return f"<{self.seed} {self.name}>"    
 
+class DynamicTeam(Team):
+    def __init__(self, name, id, seed, region, first_four, own, quality=0.5):
+        super().__init__(name, id, seed, region, first_four, own)
+        self.base_quality = quality
+        self.current_quality = quality
+        self.strength_updates = []
+        
+    def update_strength(self, opponent, expected_diff, actual_diff):
+        """Update team strength based on game performance"""
+        old_quality = self.current_quality
+        
+        # Surprise factor - how much better/worse than expected
+        surprise = actual_diff - expected_diff
+        
+        # Bayesian update weight
+        round_weight = 0.1 * (opponent.current_quality / self.current_quality)
+        
+        # Cap the adjustment to avoid extreme swings
+        adjustment = min(max(surprise * round_weight, -0.3), 0.3)
+        self.current_quality += adjustment
+        
+        # Record update for analysis
+        self.strength_updates.append({
+            'opponent_id': opponent.id,
+            'opponent_name': opponent.name,
+            'expected_diff': expected_diff,
+            'actual_diff': actual_diff,
+            'surprise': surprise,
+            'adjustment': adjustment,
+            'new_quality': self.current_quality,
+            'round': self.sim.current_round if hasattr(self, 'sim') else 'Unknown'
+        })
+        
+        return adjustment
+
+# Load team quality metrics from the R model
+# File has no headers, so we'll specify them
+team_quality = pd.read_csv('data/team_quality_metrics.csv')
+
+# Note: R model outputs 2025 for the current season
+team_quality = team_quality[team_quality['Season'] == 2025]
+team_quality_dict = dict(zip(team_quality['Team_Id'], team_quality['quality']))
+
+#print(team_quality_dict.keys())
+
 teams = []
 for k in team_dict.keys():
-    t = Team(team_dict[k]['name'], team_dict[k]['id'], team_dict[k]['seed'], team_dict[k]['region'], team_dict[k]['first_four'], team_dict[k]['own'])
+    quality = team_quality_dict[k]
+    #quality = team_quality_dict.get(k, 0.5)  # Default to 0.5 if team not found
+    t = DynamicTeam(
+        team_dict[k]['name'], 
+        k,  # Use the key as ID
+        team_dict[k]['seed'], 
+        team_dict[k]['region'], 
+        team_dict[k]['first_four'], 
+        team_dict[k]['own'],
+        quality
+    )
     teams.append(t)
 
 matchup_probabilities = pd.read_csv('data/game_predictions.csv')
@@ -288,7 +348,7 @@ class Pool():
             self.resetTourney()
             self.resetEntrants()
             #print(i)
-        
+
     def simTourney(self):
         while self.current_round <= 6:
             self.SimulateRound()
@@ -320,19 +380,51 @@ class Pool():
             else:
                 self.simulateMatchup(w,v, self.year, matchup_probabilities)
                 
-    def simulateMatchup(self, t1,t2, year, matchup_probabilities):
+    def simulateMatchup(self, t1, t2, year, matchup_probabilities):
         ids = [t1.id, t2.id]
         matchup_str = str(self.year) + '_' + str(ids[0]) + '_' + str(ids[1])
         probs = matchup_probabilities[matchup_str]
+        expected_diff = probs['Pt_Diff']
+        
+        # Store initial qualities for reporting
+        t1_initial = t1.current_quality
+        t2_initial = t2.current_quality
+        
+        # Set sim reference (for round tracking)
+        t1.sim = self
+        t2.sim = self
+        
+        #Print pre-game info
+        ##print(f"\nRound {self.current_round+1} matchup: {t1.name} ({t1.seed}) vs {t2.name} ({t2.seed})")
+        ##print(f"Pre-game ratings: {t1.name}: {t1_initial:.3f}, {t2.name}: {t2_initial:.3f}")
+        ##print(f"Expected point diff: {expected_diff:.1f}")
+        
         r = random.random()
         if r <= probs['Pred']:
             winner = t1
             loser = t2
+            # Simulate a realistic point diff centered around expected_diff
+            actual_diff = random.normalvariate(expected_diff, 5)
         else:
             winner = t2
             loser = t1
-        winner.sim_results[self.round_names[self.current_round]]+= 1
-        loser.eliminated = 1       
+            # Invert the point differential
+            actual_diff = random.normalvariate(-expected_diff, 5)
+        
+        # Update team strengths
+        winner.update_strength(loser, abs(expected_diff), abs(actual_diff))
+        loser.update_strength(winner, -abs(expected_diff), -abs(actual_diff))
+        
+        # Print post-game info
+        ##print(f"Result: {winner.name} wins by {abs(actual_diff):.1f} points")
+        ##print(f"Rating updates:")
+        ##print(f"  {winner.name}: {t1_initial if winner==t1 else t2_initial:.3f} → {winner.current_quality:.3f} ({winner.current_quality-(t1_initial if winner==t1 else t2_initial):+.3f})")
+        ##print(f"  {loser.name}: {t1_initial if loser==t1 else t2_initial:.3f} → {loser.current_quality:.3f} ({loser.current_quality-(t1_initial if loser==t1 else t2_initial):+.3f})")
+        
+        # Record game result
+        winner.sim_results[self.round_names[self.current_round]] += 1
+        loser.eliminated = 1
+        
         for e in self.entrants:
             if winner.id in e.selections[self.round_names[self.current_round]]:
                 e.tourney_points[self.round_names[self.current_round]] += self.points_structure['Points'][self.round_names[self.current_round]]
@@ -426,10 +518,10 @@ class FirstFour:
                 for x in self.teams:
                     if x.region == t.region and x.seed == t.seed and x.id != t.id and x.id not in used_teams:
                         if t.id > x.id:
-                            self.games.append(Game(x, t, 2024, matchup_probabilities))
+                            self.games.append(Game(x, t, 2025, matchup_probabilities))
                             i+= 1
                         else:
-                            self.games.append(Game(t, x, 2024, matchup_probabilities)) 
+                            self.games.append(Game(t, x, 2025, matchup_probabilities)) 
                             i+= 1
                         used_teams.append(x)
             used_teams.append(t.id)     
@@ -457,7 +549,7 @@ if submitted:
         contest_prize_structure[i]= r['Payout']
     #st.write(payout_structure)
 
-    tourney = Pool(2024, teams, entries, contest_prize_structure, points_structure, entry_fee)
+    tourney = Pool(2025, teams, entries, contest_prize_structure, points_structure, entry_fee)
     if add_seeds_flag == "Yes":
         tourney.add_seed_to_points = True
     tourney.generateBracketSelections()
@@ -589,4 +681,3 @@ if submitted:
     file_name='team_results.csv',
     mime='text/csv',
     )
-    

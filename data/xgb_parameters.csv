@@ -1,0 +1,19 @@
+"parameter","value"
+"objective","function (preds, dtrain) 
+{
+    labels <- getinfo(dtrain, ""label"")
+    c <- 5000
+    x <- preds - labels
+    grad <- x/(x^2/c^2 + 1)
+    hess <- -c^2 * (x^2 - c^2)/(x^2 + c^2)^2
+    return(list(grad = grad, hess = hess))
+}"
+"eval_metric","mae"
+"booster","gbtree"
+"eta","0.02"
+"subsample","0.35"
+"colsample_bytree","0.7"
+"num_parallel_tree","10"
+"min_child_weight","40"
+"gamma","10"
+"max_depth","3"
