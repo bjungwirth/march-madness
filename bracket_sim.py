@@ -38,14 +38,18 @@ entries = form.number_input('Number of Pool Contestants',value=16)
 entry_fee = form.number_input('Pool Entry Fee',value=20)
 # Now add a submit button to the form:
 
+if entries > 500:
+    st.error("Maximum number of bracket entries is 500")
+    st.stop()
+    
 @st.cache_data
 def convert_df_to_csv(df):
   # IMPORTANT: Cache the conversion to prevent computation on every rerun
   return df.to_csv(index=False).encode('utf-8')
 
 
-uploaded_contest_file = form.file_uploader("Upload Contest CSV")
-uploaded_points_file = form.file_uploader("Upload Pool Points Rules")
+uploaded_contest_file = form.file_uploader("Upload Pool Payout CSV")
+uploaded_points_file = form.file_uploader("Upload Pool Points Rules CSV")
 
 option = form.selectbox(
     'Import Custom Selections?',
@@ -379,6 +383,7 @@ class Pool():
                 self.simulateMatchup(v,w, self.year, matchup_probabilities)  
             else:
                 self.simulateMatchup(w,v, self.year, matchup_probabilities)
+        #print(f'Round {self.current_round} complete')
                 
     def simulateMatchup(self, t1, t2, year, matchup_probabilities):
         ids = [t1.id, t2.id]
@@ -387,8 +392,8 @@ class Pool():
         expected_diff = probs['Pt_Diff']
         
         # Store initial qualities for reporting
-        t1_initial = t1.current_quality
-        t2_initial = t2.current_quality
+        #t1_initial = t1.current_quality
+        #t2_initial = t2.current_quality
         
         # Set sim reference (for round tracking)
         t1.sim = self
@@ -404,16 +409,16 @@ class Pool():
             winner = t1
             loser = t2
             # Simulate a realistic point diff centered around expected_diff
-            actual_diff = random.normalvariate(expected_diff, 5)
+            #actual_diff = random.normalvariate(expected_diff, 5)
         else:
             winner = t2
             loser = t1
             # Invert the point differential
-            actual_diff = random.normalvariate(-expected_diff, 5)
+           # actual_diff = random.normalvariate(-expected_diff, 5)
         
         # Update team strengths
-        winner.update_strength(loser, abs(expected_diff), abs(actual_diff))
-        loser.update_strength(winner, -abs(expected_diff), -abs(actual_diff))
+        #winner.update_strength(loser, abs(expected_diff), abs(actual_diff))
+        #loser.update_strength(winner, -abs(expected_diff), -abs(actual_diff))
         
         # Print post-game info
         ##print(f"Result: {winner.name} wins by {abs(actual_diff):.1f} points")
@@ -568,7 +573,12 @@ if submitted:
             tourney.entrants[0].selection_names[c] = tms
     print('brackets created')
 
-    sims = 10000
+    if entries > 100:
+        sims = 1000
+    elif entries > 50:
+        sims = 5000
+    else:
+        sims = 10000
     tourney.monteCarlo(sims)
     print('tourney simmed')
 
@@ -589,7 +599,7 @@ if submitted:
     submissions = []
 
     for e in tourney.entrants:
-        print(e.id, e.user_submitted)
+        #print(e.id, e.user_submitted)
         r64_selections.append(e.selection_names['R64'])
         r32_selections.append(e.selection_names['R32'])
         s16_selections.append(e.selection_names['S16'])
