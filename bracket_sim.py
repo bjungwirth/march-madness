@@ -26,13 +26,13 @@ st.title("March Madness Bracket Pool Simulator")
 form = st.form("Sim Options")
 
 with open('data/contest_info/payout_structure.csv') as f:
-    st.download_button('Download Sample Contest CSV', f, 'payout_structure.csv')
+    st.download_button('Download Sample Contest Payout CSV', f, 'payout_structure.csv')
 
 with open('data/contest_info/sample_bracket.csv') as f:
     st.download_button('Download Sample Bracket Selections CSV', f, 'sample_bracket.csv')
     
 with open('data/contest_info/points_structure.csv') as f:
-    st.download_button('Download Sample Points CSV', f, 'points_structure.csv')
+    st.download_button('Download Sample Contest Points CSV', f, 'points_structure.csv')
 
 entries = form.number_input('Number of Pool Contestants',value=16)
 entry_fee = form.number_input('Pool Entry Fee',value=20)
@@ -49,7 +49,7 @@ uploaded_points_file = form.file_uploader("Upload Pool Points Rules")
 
 option = form.selectbox(
     'Import Custom Selections?',
-     ["I have my own picks to upload","Too lazy to make my own picks"])
+     ["I have my own picks to upload","Let the algorithm choose my bracket"])
 
 if option == 'I have my own picks to upload':
     uploaded_selection_file = form.file_uploader("Upload Selections CSV")
@@ -608,7 +608,7 @@ if submitted:
 
     df = pd.DataFrame([ids, r64_selections,r32_selections,s16_selections,e8_selections,f4_selections, ncg_selections, r64_points, r32_points, s16_points, e8_points,f4_points,ncg_points,rewards, submissions])
     df = df.transpose()
-    df.columns = ['id','r64_selections', 'r32_selections', 'r16_selections', 'e8_selections', 'f4_selections', 'ncg_selections', 'r64_points', 'r32_points', 's16_points', 'e8_points', 'f4_points', 'ncg_points', 'roi','user_submitted_bracket']
+    df.columns = ['Id','Round of 64 Selections', 'Round of 32 Selections', 'Sweet 16 Selections', 'Elite 8 Selections', 'Final 4 Selections', 'Champion Selections', 'Round of 64 Sim Win Prob', 'Round of 32 Sim Win Prob', 'Sweet 16 Sim Win Prob', 'Elite 8 Sim Win Prob', 'Final 4 Sim Win Prob', 'Champion Sim Win Prob', 'ROI','User Submitted Bracket']
 
     st.dataframe(df)
     st.download_button(
