@@ -168,11 +168,14 @@ for i, r in df.iterrows():
         # Apply fixes if available and get the ID.
         team_id = team_name_fixes.get(name, name)
 
-        # Check if the team name is in the spellings dictionary and get the ID.
-        if team_id in spellings:
-            team_id = spellings[team_id]['TeamID']
+        # Normalize the team name the same way as in the spellings dictionary
+        normalized_team_id = re.sub('[^\w\s]', ' ', team_id)
+        
+        # Check if the normalized team name is in the spellings dictionary
+        if normalized_team_id in spellings:
+            team_id = spellings[normalized_team_id]['TeamID']
         else:
-            print(f"Team {name} not found in spellings.")
+            print(f"Team {name} not found in spellings. Normalized: {normalized_team_id}")
             continue  # Skip this team if not found.
 
         # Add the team to the dictionary if it doesn't exist.
